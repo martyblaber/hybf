@@ -4,9 +4,10 @@ import numpy as np
 import io
 from typing import Tuple, List, Dict, Any, BinaryIO
 
-from hybf import BaseWriter, BaseReader
-from hybf import DataType, FormatType
-from hybf import CompressionType, ColumnInfo
+from hybf import BaseWriter, BaseReader, BinaryReader
+from hybf import DataType
+from hybf import ColumnInfo
+from hybf.core.dtypes import CompressionType, FormatType
 
 class CompressionSelector:
     """Analyzes columns to determine optimal compression strategy."""
@@ -24,9 +25,11 @@ class CompressionSelector:
         if series.isna().all():
             return CompressionType.NULL, None
             
-        # Check for single value
-        if series.nunique() == 1:
+        # Check for single value, properly handling NaN
+        non_null_values = series.dropna()
+        if len(non_null_values) > 0 and non_null_values.nunique() == 1 and series.isna().sum() == 0:
             return CompressionType.SINGLE_VALUE, series.iloc[0]
+            
             
         # Calculate value frequencies
         value_counts = series.value_counts()
@@ -131,7 +134,8 @@ class CompressedWriter(BaseWriter):
                     buffer.write(struct.pack('B', len(val_bytes)))
                     buffer.write(val_bytes)
         else:  # Numeric data
-            series.to_numpy().tofile(buffer)
+            #series.to_numpy().tobytes(buffer)
+            buffer.write(series.to_numpy().tobytes('C'))
     
     def _write_rle(self, buffer: BinaryIO, series: pd.Series) -> None:
         """Write column data using run-length encoding."""
@@ -247,6 +251,8 @@ class CompressedReader(BaseReader):
     
     def _read_raw(self, buffer: BinaryIO, dtype: DataType, row_count: int) -> np.ndarray:
         """Read raw (uncompressed) column data."""
+        reader = BinaryReader(buffer)
+        
         if dtype == DataType.STRING:
             values = []
             for _ in range(row_count):
@@ -257,8 +263,8 @@ class CompressedReader(BaseReader):
                     values.append(buffer.read(length).decode('utf-8'))
             return np.array(values, dtype='O')
         else:
-            return np.fromfile(buffer, dtype=dtype.to_numpy(), count=row_count)
-    
+            return reader.read_array(dtype.to_numpy(), row_count)
+        
     def _read_rle(self, buffer: BinaryIO, dtype: DataType, row_count: int) -> np.ndarray:
         """Read run-length encoded column data."""
         # Read number of runs

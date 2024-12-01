@@ -2,8 +2,8 @@ from hybf import FormatFactory
 from hybf import MinimalWriter, MinimalReader
 from hybf import CompressedWriter, CompressedReader
 
-from tests.utils import BaseFormatTest
-from tests.data.generators import DataGenerator
+from utils import BaseFormatTest
+from data.generators import DataGenerator
 
 class FormatFactoryTest(BaseFormatTest):
     """Test cases for format factory."""

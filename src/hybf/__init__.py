@@ -1,6 +1,6 @@
-from .core.base import BaseWriter, BaseReader
-from .core.enums import FormatType, CompressionType
-from .core.dtypes import DataType, ColumnInfo
+from .core.base import BaseWriter, BaseReader, BinaryReader
+from .core.dtypes import CompressionType
+from .core.dtypes import DataType, ColumnInfo, FormatType
 
 from .formats.minimal import MinimalWriter, MinimalReader
 from .formats.compressed import CompressedWriter, CompressedReader
@@ -10,6 +10,7 @@ from .factory import FormatFactory
 __all__ = [
     'BaseWriter',
     'BaseReader',
+    'BinaryReader',
     'FormatType',
     'CompressionType',
     'DataType',

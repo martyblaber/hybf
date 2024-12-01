@@ -3,7 +3,7 @@ import struct
 from typing import Tuple, List, Dict, Any, BinaryIO
 
 from hybf import BaseWriter, BaseReader
-from hybf import FormatType
+from hybf.core.dtypes import FormatType
 
 from hybf import MinimalWriter, MinimalReader
 from hybf import CompressedWriter, CompressedReader

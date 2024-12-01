@@ -3,8 +3,9 @@ import pandas as pd
 import numpy as np
 from typing import BinaryIO
 
-from hybf import BaseWriter, BaseReader
-from hybf import DataType, FormatType, ColumnInfo
+from hybf import BaseWriter, BaseReader, BinaryReader
+from hybf import DataType, ColumnInfo
+from hybf.core.dtypes import FormatType
 
 
 class MinimalWriter(BaseWriter):
@@ -41,7 +42,7 @@ class MinimalWriter(BaseWriter):
                     file.write(val_bytes)
         else:
             # Write numeric data directly
-            series.to_numpy().tofile(file)
+            file.write(series.to_numpy().tobytes('C'))
 
 class MinimalReader(BaseReader):
     """Reader for the minimal format."""
@@ -67,6 +68,8 @@ class MinimalReader(BaseReader):
     
     def _read_column(self, file: BinaryIO, dtype: DataType, row_count: int) -> np.ndarray:
         """Read a single column of data."""
+        reader = BinaryReader(file)
+        
         if dtype == DataType.STRING:
             # Read strings as length-prefixed UTF-8
             values = []
@@ -78,5 +81,5 @@ class MinimalReader(BaseReader):
                     values.append(file.read(length).decode('utf-8'))
             return np.array(values, dtype='O')
         else:
-            # Read numeric data directly
-            return np.fromfile(file, dtype=dtype.to_numpy(), count=row_count)
+            # Read numeric data using our helper
+            return reader.read_array(dtype.to_numpy(), row_count)

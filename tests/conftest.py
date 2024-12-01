@@ -26,19 +26,19 @@ def temp_file(test_data_dir):
 @pytest.fixture
 def sample_small_df(test_data_dir):
     """Provide a small DataFrame for testing minimal format."""
-    from tests.data.generators import DataGenerator
+    from data.generators import DataGenerator
     return DataGenerator.create_minimal_dataset()
 
 @pytest.fixture
 def sample_large_df(test_data_dir):
     """Provide a large DataFrame for testing compressed format."""
-    from tests.data.generators import DataGenerator
+    from data.generators import DataGenerator
     return DataGenerator.create_compressed_dataset()
 
 @pytest.fixture
 def edge_cases_df(test_data_dir):
     """Provide a DataFrame with edge cases."""
-    from tests.data.generators import DataGenerator
+    from data.generators import DataGenerator
     return DataGenerator.create_edge_cases_dataset()
 
 @pytest.fixture

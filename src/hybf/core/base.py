@@ -7,8 +7,8 @@ import io
 from typing import Any, Dict, List, BinaryIO
 
 from ..constants import MAGIC_NUMBER, VERSION
-from .dtypes import DataType, ColumnInfo
-from .enums import FormatType, CompressionType
+from .dtypes import DataType, ColumnInfo, FormatType
+from .dtypes import CompressionType
 
 class BaseWriter(ABC):
     """Abstract base class for format writers."""
@@ -63,3 +63,48 @@ class BaseReader(ABC):
             columns.append(ColumnInfo(name, DataType(dtype_value)))
         return columns
 
+class BinaryReader:
+    """Helper class for reading binary data from both files and buffers."""
+    
+    def __init__(self, source: BinaryIO):
+        """Initialize reader with a file-like object."""
+        self.source = source
+        self._is_buffer = isinstance(source, io.BytesIO)
+        
+    def read_array(self, dtype: np.dtype, count: int) -> np.ndarray:
+        """
+        Read a numpy array of specified dtype and count from the source.
+        
+        Args:
+            dtype: numpy dtype of the array to read
+            count: number of elements to read
+            
+        Returns:
+            numpy array of the requested type and size
+        """
+        # Calculate bytes to read
+        bytes_to_read = dtype.itemsize * count
+        
+        if self._is_buffer:
+            # For BytesIO, read exact number of bytes and use frombuffer
+            data = self.source.read(bytes_to_read)
+            if len(data) != bytes_to_read:
+                raise EOFError(f"Insufficient data: expected {bytes_to_read} bytes, got {len(data)}")
+            return np.frombuffer(data, dtype=dtype)
+        else:
+            # For files, use efficient fromfile
+            # Save current position in case we need to retry
+            pos = self.source.tell()
+            try:
+                result = np.fromfile(self.source, dtype=dtype, count=count)
+                if len(result) != count:
+                    raise EOFError(f"Insufficient data: expected {count} elements, got {len(result)}")
+                return result
+            except (AttributeError, TypeError):
+                # If fromfile fails (e.g., with non-standard file objects),
+                # fall back to read+frombuffer approach
+                self.source.seek(pos)
+                data = self.source.read(bytes_to_read)
+                if len(data) != bytes_to_read:
+                    raise EOFError(f"Insufficient data: expected {bytes_to_read} bytes, got {len(data)}")
+                return np.frombuffer(data, dtype=dtype)

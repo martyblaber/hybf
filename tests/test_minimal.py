@@ -2,8 +2,8 @@ import pandas as pd
 
 from hybf import MinimalWriter, MinimalReader
 
-from tests.utils import BaseFormatTest
-from tests.data.generators import DataGenerator
+from utils import BaseFormatTest
+from data.generators import DataGenerator
 
 class MinimalFormatTest(BaseFormatTest):
     """Test cases for minimal format."""
