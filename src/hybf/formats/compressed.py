@@ -1,13 +1,20 @@
+"""/hybf/src/hybf/formats/compressed.py
+Reader and Writer and CompressionSelector for Compressed files. Multiple compression styles supported.
+"""
 import struct
 import pandas as pd
 import numpy as np
 import io
 from typing import Tuple, List, Dict, Any, BinaryIO
 
-from hybf import BaseWriter, BaseReader, BinaryReader
+from hybf import BaseWriter
+from hybf import BaseReader, BinaryReader
+from hybf.core.encoding import BitPackedDictionaryWriter, BitPackedDictionaryReader 
 from hybf import DataType
 from hybf import ColumnInfo
 from hybf.core.dtypes import CompressionType, FormatType
+from hybf.utils.numeric import analyze_numeric_column, read_numeric_column, write_numeric_column
+from hybf.formats.raw import RawWriter, RawReader
 
 class CompressionSelector:
     """Analyzes columns to determine optimal compression strategy."""
@@ -24,12 +31,17 @@ class CompressionSelector:
         # Check for null column
         if series.isna().all():
             return CompressionType.NULL, None
-            
+        
+        if len(series[series.isna()].drop_duplicates()) > 1:
+            Warning("Series has more than one type of null value. These will be converted to None.")
+        
         # Check for single value, properly handling NaN
         non_null_values = series.dropna()
         if len(non_null_values) > 0 and non_null_values.nunique() == 1 and series.isna().sum() == 0:
             return CompressionType.SINGLE_VALUE, series.iloc[0]
-            
+
+        #What is the type of the non-null values?
+        #if non_null_values.infer_objects().dtypes == object:
             
         # Calculate value frequencies
         value_counts = series.value_counts()
@@ -122,21 +134,10 @@ class CompressedWriter(BaseWriter):
             compressed_data = buffer.getvalue()
             file.write(struct.pack('>I', len(compressed_data)))
             file.write(compressed_data)
-    
+   
     def _write_raw(self, buffer: BinaryIO, series: pd.Series) -> None:
-        """Write column data with no compression."""
-        if series.dtype == object:  # String data
-            for val in series:
-                if pd.isna(val):
-                    buffer.write(struct.pack('B', 0))
-                else:
-                    val_bytes = str(val).encode('utf-8')
-                    buffer.write(struct.pack('B', len(val_bytes)))
-                    buffer.write(val_bytes)
-        else:  # Numeric data
-            #series.to_numpy().tobytes(buffer)
-            buffer.write(series.to_numpy().tobytes('C'))
-    
+        RawWriter.write(buffer, series)
+
     def _write_rle(self, buffer: BinaryIO, series: pd.Series) -> None:
         """Write column data using run-length encoding."""
         runs = self.compression_selector._calculate_runs(series)
@@ -160,23 +161,9 @@ class CompressedWriter(BaseWriter):
             buffer.write(struct.pack('>I', count))
     
     def _write_dictionary(self, buffer: BinaryIO, series: pd.Series, value_dict: Dict) -> None:
-        """Write column data using dictionary encoding."""
-        # Write dictionary
-        buffer.write(struct.pack('>H', len(value_dict)))
-        reverse_dict = {v: k for k, v in value_dict.items()}
-        
-        for value in value_dict.values():
-            val_bytes = str(value).encode('utf-8')
-            buffer.write(struct.pack('B', len(val_bytes)))
-            buffer.write(val_bytes)
-        
-        # Write indexes
-        for value in series:
-            if pd.isna(value):
-                buffer.write(struct.pack('>H', 65535))  # Special value for null
-            else:
-                buffer.write(struct.pack('>H', reverse_dict[value]))
-    
+        writer = BitPackedDictionaryWriter()
+        writer.write_dictionary(buffer, series, value_dict)
+
     def _write_single_value(self, buffer: BinaryIO, value: Any, length: int) -> None:
         """Write a column containing a single value repeated."""
         # Write the value
@@ -248,23 +235,12 @@ class CompressedReader(BaseReader):
                 return self._read_null_column(buffer, row_count)
             else:
                 raise ValueError(f"Unknown compression type: {compression_type}")
-    
+
     def _read_raw(self, buffer: BinaryIO, dtype: DataType, row_count: int) -> np.ndarray:
-        """Read raw (uncompressed) column data."""
-        reader = BinaryReader(buffer)
-        
-        if dtype == DataType.STRING:
-            values = []
-            for _ in range(row_count):
-                length = struct.unpack('B', buffer.read(1))[0]
-                if length == 0:
-                    values.append(None)
-                else:
-                    values.append(buffer.read(length).decode('utf-8'))
-            return np.array(values, dtype='O')
-        else:
-            return reader.read_array(dtype.to_numpy(), row_count)
-        
+        """Read raw column data with optimized numeric handling."""
+        return RawReader.read(buffer, dtype, row_count)
+    
+
     def _read_rle(self, buffer: BinaryIO, dtype: DataType, row_count: int) -> np.ndarray:
         """Read run-length encoded column data."""
         # Read number of runs
@@ -293,24 +269,8 @@ class CompressedReader(BaseReader):
         return np.array(values, dtype=dtype.to_numpy())
     
     def _read_dictionary(self, buffer: BinaryIO, row_count: int) -> np.ndarray:
-        """Read dictionary-encoded column data."""
-        # Read dictionary size
-        dict_size = struct.unpack('>H', buffer.read(2))[0]
-        
-        # Read dictionary values
-        value_dict = {}
-        for i in range(dict_size):
-            length = struct.unpack('B', buffer.read(1))[0]
-            value = buffer.read(length).decode('utf-8')
-            value_dict[i] = value
-        
-        # Read indexes
-        values = []
-        for _ in range(row_count):
-            idx = struct.unpack('>H', buffer.read(2))[0]
-            values.append(None if idx == 65535 else value_dict[idx])
-        
-        return np.array(values, dtype='O')
+        reader = BitPackedDictionaryReader()
+        return reader.read_dictionary(buffer, row_count)
     
     def _read_single_value(self, buffer: BinaryIO, dtype: DataType, row_count: int) -> np.ndarray:
         """Read a column containing a single repeated value."""
