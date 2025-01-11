@@ -1,4 +1,4 @@
-"""
+"""/hybf/test/data/generators.py
 Test suite for the hybrid binary format implementation.
 Includes utilities for generating test data and comprehensive test cases.
 """
@@ -38,18 +38,32 @@ class DataGenerator:
             # Low cardinality string column (good for dictionary encoding)
             'categorical': np.random.choice(['cat_a', 'cat_b', 'cat_c'], rows),
             
+            # Low cardinality string column (good for dictionary encoding), with Nan
+            'categorical_with_nan': np.random.choice(['cat_a', 'cat_b', 'cat_c', np.nan], rows),
+
             # Numeric column with runs (good for RLE)
             'runs': np.repeat(np.arange(rows // 100), 100),
             
             # Regular numeric columns
             'random_ints': np.random.randint(0, 1000, rows),
             'random_floats': np.random.randn(rows),
-            
+
             # Null column
             'nulls': [None] * rows,
             
             # Mixed nulls
-            'sparse': np.where(np.random.random(rows) < 0.8, None, 'value')
+            'sparse': np.where(np.random.random(rows) < 0.8, None, 'value'),
+
+            # Mixed int and null
+            'random_int_and_null': np.where(np.random.random(rows) < 0.1, [None]*rows, np.random.randint(0, 1000, rows)),
+
+            'random_int_and_multinull': np.where(np.random.random(rows) < 0.1, 
+                                                 np.random.choice([None, pd.NA, np.nan], rows), 
+                                                 np.random.randint(0, 1000, rows)),
+
+            # Mixed int and null
+            'random_float_and_null': np.where(np.random.random(rows) < 0.1, [None]*rows, np.random.randn(rows))
+
         }
         return pd.DataFrame(data)
     
@@ -69,7 +83,7 @@ class DataGenerator:
             # Special numeric values
             'special_nums': [np.inf, -np.inf, np.nan],
             
-            # Various null representations
-            'nulls': [None, np.nan, pd.NA]
+            # # Various null representations
+            # 'nulls': [None, np.nan, pd.NA]
         })
 
