@@ -1,14 +1,17 @@
+"""/hybf/src/hybf/core/base.py
+Abstract classes for readers/writers.
+Adds the MAGIC_NUMBER and VERSION to the beginning of the file.
+"""
+
 from abc import ABC, abstractmethod
-from enum import Enum, auto
 import struct
 import pandas as pd
 import numpy as np
 import io
-from typing import Any, Dict, List, BinaryIO
+from typing import List, BinaryIO
 
 from ..constants import MAGIC_NUMBER, VERSION
 from .dtypes import DataType, ColumnInfo, FormatType
-from .dtypes import CompressionType
 
 class BaseWriter(ABC):
     """Abstract base class for format writers."""
@@ -71,6 +74,19 @@ class BinaryReader:
         self.source = source
         self._is_buffer = isinstance(source, io.BytesIO)
         
+    def read_bytes(self, count: int) -> bytes:
+        """
+        Read a specified byte count from the source.
+        Provided for uniformity of api experince.
+
+        Args:
+            count: number of bytes to read
+            
+        Returns:
+            bytes
+        """
+        return self.source.read(count)
+
     def read_array(self, dtype: np.dtype, count: int) -> np.ndarray:
         """
         Read a numpy array of specified dtype and count from the source.

@@ -1,3 +1,10 @@
+"""/hybf/src/hybf/core/dtypes.py
+data types for storage.
+There are multiple places in the code base where a reduced number of bits can be 
+  used to store data. This causes a mismatch between the compressed type and the 
+  uncompressed type that is not accounted for properly.
+"""
+
 from enum import Enum
 from dataclasses import dataclass
 import numpy as np
