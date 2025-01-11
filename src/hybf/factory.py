@@ -1,3 +1,7 @@
+"""/hybf/src/hybf/factory.py
+Provide FormatFactory to choose between a minimalistic format and a compressed one.
+"""
+
 import pandas as pd
 import struct
 from typing import Tuple, List, Dict, Any, BinaryIO
