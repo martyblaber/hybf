@@ -14,10 +14,6 @@ load_dotenv('.env')
 client = Anthropic()
 #claude = ClaudeLogger(client)
 
-
-model = "claude-3-5-sonnet-latest"
-
-
 def read_file(path):
     with open(path, 'r') as fh:
         return fh.read()
@@ -34,7 +30,7 @@ def generate_response_path():
 def save_response(text):
     filename = generate_response_path()
     bytecount = save_file(filename, text)
-    print(f"""        {{
+    print(f"""    {{
     "role": "assistant",
     "content": [{{
         "type": "text",
@@ -43,6 +39,9 @@ def save_response(text):
 """)
     return filename, bytecount
     
+
+model = "claude-3-5-sonnet-latest"
+
 system_prompt = read_file('system_prompt_v2.md')
 
 system=[
@@ -58,23 +57,24 @@ messages=[
     "content": [{
         "type": "text",
         "text": "Implement the entirety of the project."
+    }]},
+    {
+    "role": "assistant",
+    "content": [{
+        "type": "text",
+        "text": read_file('response_2025.0112.1851.31.txt')
     }]}
-}]
+]
 
 token_count = client.messages.count_tokens(
     model=model,system=system,
-    messages=messages
+    messages=messages[:]
 )
 
 print("Input Tokens:", token_count)
 
 if False:
     max_tokens = 8192
-    # response = client.messages.create(
-    #     max_tokens=max_tokens, 
-    #     messages=messages, 
-    #     model=model, 
-    #     system=system)
     response = ""
 
     with client.messages.stream(
@@ -86,4 +86,4 @@ if False:
       for text in stream.text_stream:
           response += text
           print(text, end="", flush=True)
-    save_file('response_2025.0112.1835.txt',response)
+    save_response(response)
